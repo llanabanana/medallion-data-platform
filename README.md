@@ -1,58 +1,65 @@
+# Medallion Data Platform
 
-# Welcome to your CDK Python project!
+A cloud data platform built with **AWS CDK (Python)** that implements the **Medallion architecture** (Bronze → Silver → Gold) to ingest, process, store, and visualize data from external sources such as **Hacker News** and **Twitter**.
 
-This is a blank project for CDK development with Python.
+> University team project — Cloud Computing course. This is a fork of the original team repository ([dkomatovic/medallion-data-platform](https://github.com/dkomatovic/medallion-data-platform)), kept here as part of my project portfolio.
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
+## Architecture
 
-This project is set up like a standard Python project.  The initialization
-process also creates a virtualenv within this project, stored under the `.venv`
-directory.  To create the virtualenv it assumes that there is a `python3`
-(or `python` for Windows) executable in your path with access to the `venv`
-package. If for any reason the automatic creation of the virtualenv fails,
-you can create the virtualenv manually.
+The platform is organized into three data layers, each backed by AWS Lambda functions:
 
-To manually create a virtualenv on MacOS and Linux:
+- **Bronze** — raw ingestion from external APIs (Hacker News, Twitter) into landing storage.
+- **Silver** — cleaning and normalization of the raw data.
+- **Gold** — curated, aggregated data ready for analytics and reporting.
 
-```
-$ python -m venv .venv
-```
-
-After the init process completes and the virtualenv is created, you can use the following
-step to activate your virtualenv.
+From the Gold layer, data is synced into a **PostgreSQL** database (`sync/gold_to_postgres`) running on **EC2**, which powers an **Apache Superset** dashboard for visualization. A **Discord** notification Lambda alerts on pipeline events.
 
 ```
-$ source .venv/bin/activate
+Sources (Hacker News, Twitter)
+        │
+        ▼
+  Bronze Lambdas  →  Silver Lambdas  →  Gold Lambdas
+                                            │
+                                            ▼
+                              PostgreSQL (EC2) → Superset dashboards
+                                            │
+                                            ▼
+                                  Discord notifications
 ```
 
-If you are a Windows platform, you would activate the virtualenv like this:
+## Tech stack
+
+- **Infrastructure as Code:** AWS CDK (Python)
+- **Compute:** AWS Lambda, EC2
+- **Storage:** PostgreSQL
+- **Visualization:** Apache Superset
+- **Containerization:** Docker (for lambdas with heavier dependencies, e.g. Twitter ingestion)
+- **Notifications:** Discord webhook integration
+
+## Project structure
 
 ```
-% .venv\Scripts\activate.bat
+medallion_data_platform/   # CDK stack and constructs (networking, notifications, visualization)
+lambdas/
+  bronze/                  # raw ingestion (hacker_news, twitter)
+  silver/                  # cleaning & normalization
+  gold/                    # curated datasets
+  sync/                    # gold_to_postgres sync job
+  notify/                  # discord notifications
+ec2/                       # EC2 user data, Superset config, DB init scripts
+tests/                     # unit tests
+app.py                     # CDK app entry point
 ```
 
-Once the virtualenv is activated, you can install the required dependencies.
+## Getting started
 
+```bash
+python -m venv .venv
+.venv\Scripts\activate.bat        # Windows
+pip install -r requirements.txt
+
+cdk synth      # synthesize the CloudFormation template
+cdk deploy     # deploy the stack to AWS
 ```
-$ pip install -r requirements.txt
-```
 
-At this point you can now synthesize the CloudFormation template for this code.
-
-```
-$ cdk synth
-```
-
-To add additional dependencies, for example other CDK libraries, just add
-them to your `requirements.txt` file and rerun the `python -m pip install -r requirements.txt`
-command.
-
-## Useful commands
-
- * `cdk ls`          list all stacks in the app
- * `cdk synth`       emits the synthesized CloudFormation template
- * `cdk deploy`      deploy this stack to your default AWS account/region
- * `cdk diff`        compare deployed stack with current state
- * `cdk docs`        open CDK documentation
-
-Enjoy!
+See `requirements-dev.txt` for development/test dependencies.
